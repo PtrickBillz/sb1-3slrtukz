@@ -1,6 +1,7 @@
 import React from 'react';
 import { Menu, Bell, Search } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { DatabaseStatus } from '../ui/DatabaseStatus';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -17,6 +18,8 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
       </button>
       
       <div className="flex items-center gap-4">
+        <DatabaseStatus />
+        
         <div className="relative hidden sm:block">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
           <input
