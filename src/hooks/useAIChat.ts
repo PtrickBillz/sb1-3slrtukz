@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { AIDatabaseService, ChatSession, ChatMessage } from '../services/aiDatabase';
 
 export const useAIChat = () => {

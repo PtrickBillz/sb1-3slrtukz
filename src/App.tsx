@@ -5,6 +5,7 @@ import { LandingPage } from './pages/LandingPage';
 import { AuthPage } from './pages/AuthPage';
 import { Dashboard } from './pages/Dashboard';
 import { AIAssistant } from './pages/AIAssistant';
+import { SignIn } from './pages/SignIn';
 import { WalletTracker } from './pages/WalletTracker';
 import { Taskboard } from './pages/Taskboard';
 import { LearnEarn } from './pages/LearnEarn';
@@ -21,6 +22,7 @@ function App() {
           {!isAuthenticated ? (
             <>
               <Route path="/" element={<LandingPage />} />
+          <Route path="/signin" element={<SignIn />} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </>

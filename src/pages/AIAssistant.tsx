@@ -137,7 +137,7 @@ export const AIAssistant: React.FC = () => {
           <Bot className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-700 mb-2">Authentication Required</h2>
           <p className="text-gray-600 mb-4">Please sign in to use the AI Assistant</p>
-          <Button onClick={() => window.location.href = '/auth'}>
+          <Button onClick={() => window.location.href = '/signin'}>
             Go to Sign In
           </Button>
         </div>
