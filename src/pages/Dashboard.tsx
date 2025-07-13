@@ -65,15 +65,54 @@ export function Dashboard() {
       setTablesExist(true);
 
       // Load actual stats if tables exist
-      const [
-        { count: sessionCount },
-        { count: queryCount },
-        { data: userData }
-      ] = await Promise.all([
-        supabase.from('chat_sessions').select('*', { count: 'exact', head: true }),
-        supabase.from('ai_queries').select('*', { count: 'exact', head: true }),
-        supabase.from('user_data').select('wallets').single()
-      ]);
+      // Load session count
+      const { count: sessionCount, error: sessionCountError } = await supabase
+        .from('chat_sessions')
+        .select('*', { count: 'exact', head: true });
+
+      if (sessionCountError && sessionCountError.code === '42P01') {
+        setTablesExist(false);
+        setStats({
+          totalSessions: 0,
+          totalQueries: 0,
+          walletCount: 0,
+          xpPoints: 0
+        });
+        return;
+      }
+
+      // Load query count
+      const { count: queryCount, error: queryCountError } = await supabase
+        .from('ai_queries')
+        .select('*', { count: 'exact', head: true });
+
+      if (queryCountError && queryCountError.code === '42P01') {
+        setTablesExist(false);
+        setStats({
+          totalSessions: 0,
+          totalQueries: 0,
+          walletCount: 0,
+          xpPoints: 0
+        });
+        return;
+      }
+
+      // Load user data
+      const { data: userData, error: userDataError } = await supabase
+        .from('user_data')
+        .select('wallets')
+        .single();
+
+      if (userDataError && userDataError.code === '42P01') {
+        setTablesExist(false);
+        setStats({
+          totalSessions: 0,
+          totalQueries: 0,
+          walletCount: 0,
+          xpPoints: 0
+        });
+        return;
+      }
 
       const walletCount = userData?.wallets ? JSON.parse(userData.wallets).length : 0;
       const xpPoints = (queryCount || 0) * 10 + (sessionCount || 0) * 25;
