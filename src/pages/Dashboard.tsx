@@ -41,92 +41,73 @@ export function Dashboard() {
       setLoading(true);
       setError(null);
 
-      // Check if tables exist by trying to query them
-      const { data: sessionsData, error: sessionsError } = await supabase
+      // Check if tables exist by trying a simple count query
+      const { error: sessionsError } = await supabase
         .from('chat_sessions')
         .select('count', { count: 'exact', head: true });
 
       if (sessionsError) {
-        if (sessionsError.code === '42P01') {
-          // Table doesn't exist
-          setTablesExist(false);
-          setStats({
-            totalSessions: 0,
-            totalQueries: 0,
-            walletCount: 0,
-            xpPoints: 0
-          });
-          return;
-        } else {
-          throw sessionsError;
-        }
+        // Any error means tables don't exist or aren't accessible
+        console.log('Tables not available:', sessionsError.message);
+        setTablesExist(false);
+        setStats({
+          totalSessions: 0,
+          totalQueries: 0,
+          walletCount: 0,
+          xpPoints: 0
+        });
+        return;
       }
 
       setTablesExist(true);
 
-      // Load actual stats if tables exist
-      // Load session count
-      const { count: sessionCount, error: sessionCountError } = await supabase
-        .from('chat_sessions')
-        .select('*', { count: 'exact', head: true });
+      // If we get here, tables exist - load actual stats
+      try {
+        // Load session count
+        const { count: sessionCount } = await supabase
+          .from('chat_sessions')
+          .select('*', { count: 'exact', head: true });
 
-      if (sessionCountError && sessionCountError.code === '42P01') {
-        setTablesExist(false);
+        // Load query count
+        const { count: queryCount } = await supabase
+          .from('ai_queries')
+          .select('*', { count: 'exact', head: true });
+
+        // Load user data
+        const { data: userData } = await supabase
+          .from('user_data')
+          .select('wallets')
+          .single();
+
+        const walletCount = userData?.wallets ? JSON.parse(userData.wallets).length : 0;
+        const xpPoints = (queryCount || 0) * 10 + (sessionCount || 0) * 25;
+
+        setStats({
+          totalSessions: sessionCount || 0,
+          totalQueries: queryCount || 0,
+          walletCount,
+          xpPoints
+        });
+      } catch (statsError) {
+        console.log('Error loading stats:', statsError);
+        // Set default stats if individual queries fail
         setStats({
           totalSessions: 0,
           totalQueries: 0,
           walletCount: 0,
           xpPoints: 0
         });
-        return;
       }
-
-      // Load query count
-      const { count: queryCount, error: queryCountError } = await supabase
-        .from('ai_queries')
-        .select('*', { count: 'exact', head: true });
-
-      if (queryCountError && queryCountError.code === '42P01') {
-        setTablesExist(false);
-        setStats({
-          totalSessions: 0,
-          totalQueries: 0,
-          walletCount: 0,
-          xpPoints: 0
-        });
-        return;
-      }
-
-      // Load user data
-      const { data: userData, error: userDataError } = await supabase
-        .from('user_data')
-        .select('wallets')
-        .single();
-
-      if (userDataError && userDataError.code === '42P01') {
-        setTablesExist(false);
-        setStats({
-          totalSessions: 0,
-          totalQueries: 0,
-          walletCount: 0,
-          xpPoints: 0
-        });
-        return;
-      }
-
-      const walletCount = userData?.wallets ? JSON.parse(userData.wallets).length : 0;
-      const xpPoints = (queryCount || 0) * 10 + (sessionCount || 0) * 25;
-
-      setStats({
-        totalSessions: sessionCount || 0,
-        totalQueries: queryCount || 0,
-        walletCount,
-        xpPoints
-      });
 
     } catch (err) {
       console.error('Error loading dashboard stats:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
+      setTablesExist(false);
+      setStats({
+        totalSessions: 0,
+        totalQueries: 0,
+        walletCount: 0,
+        xpPoints: 0
+      });
     } finally {
       setLoading(false);
     }
