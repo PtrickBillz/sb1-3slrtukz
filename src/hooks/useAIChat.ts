@@ -49,6 +49,13 @@ export const useAIChat = () => {
 
   const createNewSession = async (title?: string) => {
     try {
+      // Check if user is authenticated first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError('Please sign in to create a chat session');
+        return;
+      }
+
       const newSession = await AIDatabaseService.createChatSession(title);
       if (newSession) {
         setSessions(prev => [newSession, ...prev]);
@@ -85,6 +92,13 @@ export const useAIChat = () => {
 
   const sendMessage = async (content: string) => {
     if (!currentSession || !content.trim()) return;
+
+    // Check authentication before sending
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setError('Please sign in to send messages');
+      return;
+    }
 
     setLoading(true);
     setError(null);

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Plus, Trash2, MessageSquare } from 'lucide-react';
+import { Send, Bot, User, Plus, Trash2, MessageSquare, AlertTriangle, Database, ExternalLink } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAIChat } from '../hooks/useAIChat';
@@ -8,6 +8,9 @@ import { supabase } from '../lib/supabase';
 export const AIAssistant: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [tablesExist, setTablesExist] = useState(false);
+  const [checkingTables, setCheckingTables] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const {
@@ -34,8 +37,15 @@ export const AIAssistant: React.FC = () => {
   // Check authentication status
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setIsAuthenticated(!!user);
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setAuthLoading(false);
+      }
     };
     checkAuth();
 
@@ -46,6 +56,40 @@ export const AIAssistant: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Check if database tables exist
+  useEffect(() => {
+    const checkTables = async () => {
+      if (!isAuthenticated) {
+        setCheckingTables(false);
+        return;
+      }
+
+      try {
+        setCheckingTables(true);
+        const { error } = await supabase
+          .from('chat_sessions')
+          .select('count', { count: 'exact', head: true });
+
+        if (error) {
+          if (error.code === '42P01') {
+            setTablesExist(false);
+          } else {
+            throw error;
+          }
+        } else {
+          setTablesExist(true);
+        }
+      } catch (error) {
+        console.error('Table check error:', error);
+        setTablesExist(false);
+      } finally {
+        setCheckingTables(false);
+      }
+    };
+
+    checkTables();
+  }, [isAuthenticated]);
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,7 +97,7 @@ export const AIAssistant: React.FC = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || loading) return;
+    if (!inputMessage.trim() || loading || !tablesExist) return;
 
     const message = inputMessage;
     setInputMessage('');
@@ -61,7 +105,9 @@ export const AIAssistant: React.FC = () => {
   };
 
   const handleQuickPrompt = (prompt: string) => {
-    setInputMessage(prompt);
+    if (tablesExist) {
+      setInputMessage(prompt);
+    }
   };
 
   const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
@@ -71,6 +117,18 @@ export const AIAssistant: React.FC = () => {
     }
   };
 
+  // Show loading state
+  if (authLoading || checkingTables) {
+    return (
+      <div className="h-full flex items-center justify-center bg-white rounded-lg shadow-sm">
+        <div className="text-center p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading AI Assistant...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Show authentication required message
   if (!isAuthenticated) {
     return (
@@ -78,10 +136,78 @@ export const AIAssistant: React.FC = () => {
         <div className="text-center p-8">
           <Bot className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-700 mb-2">Authentication Required</h2>
-          <p className="text-gray-600 mb-4">Please connect to Supabase to use the AI Assistant</p>
-          <Button onClick={() => window.location.reload()}>
-            Refresh Page
+          <p className="text-gray-600 mb-4">Please sign in to use the AI Assistant</p>
+          <Button onClick={() => window.location.href = '/auth'}>
+            Go to Sign In
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show database setup required message
+  if (!tablesExist) {
+    return (
+      <div className="h-full bg-white rounded-lg shadow-sm p-6">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+          <div className="flex items-start space-x-3">
+            <AlertTriangle className="w-6 h-6 text-amber-600 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-amber-800 mb-2">
+                Database Setup Required
+              </h3>
+              <p className="text-amber-700 mb-4">
+                The AI Assistant requires database tables that haven't been created yet. Follow these steps to set up your database:
+              </p>
+              
+              <div className="space-y-3">
+                <div className="bg-white rounded-md p-4 border border-amber-200">
+                  <h4 className="font-medium text-amber-800 mb-2 flex items-center">
+                    <Database className="w-4 h-4 mr-2" />
+                    Step 1: Open Supabase Dashboard
+                  </h4>
+                  <p className="text-sm text-amber-700 mb-2">
+                    Go to your Supabase project dashboard and navigate to the SQL Editor.
+                  </p>
+                  <a 
+                    href="https://supabase.com/dashboard" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center text-sm text-amber-600 hover:text-amber-800 underline"
+                  >
+                    Open Supabase Dashboard <ExternalLink className="w-3 h-3 ml-1" />
+                  </a>
+                </div>
+
+                <div className="bg-white rounded-md p-4 border border-amber-200">
+                  <h4 className="font-medium text-amber-800 mb-2">
+                    Step 2: Run Migration SQL
+                  </h4>
+                  <p className="text-sm text-amber-700 mb-2">
+                    Copy and paste the SQL from this migration file in your project:
+                  </p>
+                  <code className="text-xs bg-amber-100 px-2 py-1 rounded text-amber-800 block">
+                    supabase/migrations/20250713021608_bitter_spark.sql
+                  </code>
+                </div>
+
+                <div className="bg-white rounded-md p-4 border border-amber-200">
+                  <h4 className="font-medium text-amber-800 mb-2">
+                    Step 3: Refresh Page
+                  </h4>
+                  <p className="text-sm text-amber-700 mb-2">
+                    After running the SQL, refresh this page to access the AI Assistant.
+                  </p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-3 py-1 bg-amber-600 text-white text-sm rounded hover:bg-amber-700 transition-colors"
+                  >
+                    Refresh Page
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -253,9 +379,9 @@ export const AIAssistant: React.FC = () => {
               onChange={(e) => setInputMessage(e.target.value)}
               placeholder="Ask me anything about your data..."
               className="flex-1"
-              disabled={loading}
+              disabled={loading || !tablesExist}
             />
-            <Button type="submit" disabled={!inputMessage.trim() || loading}>
+            <Button type="submit" disabled={!inputMessage.trim() || loading || !tablesExist}>
               <Send size={20} />
             </Button>
           </form>
